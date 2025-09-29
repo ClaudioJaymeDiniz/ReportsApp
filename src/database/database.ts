@@ -1,4 +1,5 @@
-import * as SQLite from "expo-sqlite";
+import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 import {
   User,
   Project,
@@ -16,8 +17,22 @@ class DatabaseService {
     return this.db !== null;
   }
 
+  private async ensureInitialized(): Promise<void> {
+    if (!this.isInitialized() && Platform.OS !== 'web') {
+      await this.init();
+    }
+  }
+
   async init(): Promise<void> {
     try {
+      // Verifica se está rodando na web e pula a inicialização do SQLite
+      if (Platform.OS === 'web') {
+        console.log('Running on web, skipping SQLite initialization');
+        // Para web, podemos usar localStorage ou IndexedDB como alternativa
+        this.db = null;
+        return;
+      }
+      
       this.db = await SQLite.openDatabaseAsync("reports.db");
       await this.createTables();
       console.log("Database initialized successfully");
@@ -226,7 +241,8 @@ class DatabaseService {
   }
 
   async getProjectsByUserId(userId: string): Promise<Project[]> {
-    if (!this.db) throw new Error("Database not initialized");
+    await this.ensureInitialized();
+    if (!this.db) return [];
 
     const results = await this.db.getAllAsync<any>(
       "SELECT * FROM projects WHERE owner_id = ? ORDER BY created_at DESC",
@@ -242,6 +258,28 @@ class DatabaseService {
       createdAt: result.created_at,
       updatedAt: result.updated_at,
     }));
+  }
+
+  async getProjectById(id: string): Promise<Project | null> {
+    await this.ensureInitialized();
+    if (!this.db) return null;
+
+    const result = await this.db.getFirstAsync<any>(
+      "SELECT * FROM projects WHERE id = ?",
+      [id]
+    );
+
+    if (!result) return null;
+
+    return {
+      id: result.id,
+      name: result.name,
+      description: result.description,
+      ownerId: result.owner_id,
+      settings: JSON.parse(result.settings),
+      createdAt: result.created_at,
+      updatedAt: result.updated_at,
+    };
   }
 
   // Métodos para relatórios
@@ -293,7 +331,8 @@ class DatabaseService {
   }
 
   async getAllReports(): Promise<Report[]> {
-    if (!this.db) throw new Error("Database not initialized");
+    await this.ensureInitialized();
+    if (!this.db) return [];
 
     const results = await this.db.getAllAsync<any>(
       "SELECT * FROM reports ORDER BY created_at DESC"
@@ -314,7 +353,8 @@ class DatabaseService {
   }
 
   async getReportById(id: string): Promise<Report | null> {
-    if (!this.db) throw new Error("Database not initialized");
+    await this.ensureInitialized();
+    if (!this.db) return null;
 
     const result = await this.db.getFirstAsync<any>(
       "SELECT * FROM reports WHERE id = ?",
@@ -335,6 +375,59 @@ class DatabaseService {
       updatedAt: result.updated_at,
       createdBy: result.created_by,
     };
+  }
+
+  async updateReport(id: string, report: Partial<Report>): Promise<void> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error("Database not initialized");
+
+    const now = new Date().toISOString();
+    const updateFields: string[] = [];
+    const values: any[] = [];
+
+    if (report.title !== undefined) {
+      updateFields.push("title = ?");
+      values.push(report.title);
+    }
+    if (report.description !== undefined) {
+      updateFields.push("description = ?");
+      values.push(report.description);
+    }
+    if (report.fields !== undefined) {
+      updateFields.push("fields = ?");
+      values.push(JSON.stringify(report.fields));
+    }
+    if (report.permissions !== undefined) {
+      updateFields.push("permissions = ?");
+      values.push(JSON.stringify(report.permissions));
+    }
+    if (report.status !== undefined) {
+      updateFields.push("status = ?");
+      values.push(report.status);
+    }
+
+    updateFields.push("updated_at = ?");
+    values.push(now);
+    values.push(id);
+
+    await this.db.runAsync(
+      `UPDATE reports SET ${updateFields.join(", ")} WHERE id = ?`,
+      values
+    );
+  }
+
+  async deleteReport(id: string): Promise<void> {
+    await this.ensureInitialized();
+    if (!this.db) throw new Error("Database not initialized");
+
+    // Primeiro, deletar todas as submissões relacionadas ao relatório
+    await this.db.runAsync(
+      "DELETE FROM report_submissions WHERE report_id = ?",
+      [id]
+    );
+
+    // Depois, deletar o relatório
+    await this.db.runAsync("DELETE FROM reports WHERE id = ?", [id]);
   }
 
   // Métodos para submissões
@@ -451,7 +544,8 @@ class DatabaseService {
   }
 
   async getSubmissionsByUserId(userId: string): Promise<ReportSubmission[]> {
-    if (!this.db) throw new Error("Database not initialized");
+    await this.ensureInitialized();
+    if (!this.db) return [];
 
     const results = await this.db.getAllAsync<any>(
       "SELECT * FROM report_submissions WHERE user_id = ? ORDER BY last_modified DESC",

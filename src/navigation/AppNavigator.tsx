@@ -23,7 +23,7 @@ export type RootStackParamList = {
   Main: undefined;
   Login: undefined;
   Register: undefined;
-  CreateReport: { projectId?: string };
+  CreateReport: { projectId?: string; reportId?: string; isEditing?: boolean };
   ReportDetail: { reportId: string };
   ReportResponses: { reportId: string };
   FillReport: { reportId: string; submissionId?: string };
@@ -104,7 +104,7 @@ const MainTabs = () => (
 const MainStack = () => (
   <Stack.Navigator>
     <Stack.Screen
-      name="Main"
+      name="Tabs"
       component={MainTabs}
       options={{ headerShown: false }}
     />
@@ -120,11 +120,11 @@ const MainStack = () => (
     <Stack.Screen
       name="CreateReport"
       component={CreateReportScreen}
-      options={{
-        title: "Criar Relatório",
+      options={({ route }) => ({
+        title: route.params?.isEditing ? "Editar Relatório" : "Criar Relatório",
         headerStyle: { backgroundColor: "#2196F3" },
         headerTintColor: "#fff",
-      }}
+      })}
     />
     <Stack.Screen
       name="ReportDetail"

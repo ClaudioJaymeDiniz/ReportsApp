@@ -3,7 +3,6 @@ import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { 
   Text, 
   Card, 
-  Title, 
   Button, 
   List,
   Avatar,
@@ -69,7 +68,7 @@ const ProfileScreen: React.FC = () => {
             label={getInitials(state.user?.name || 'U')}
             style={styles.avatar}
           />
-          <Title style={styles.userName}>{state.user?.name}</Title>
+          <Text variant="headlineMedium" style={styles.userName}>{state.user?.name}</Text>
           <Text style={styles.userEmail}>{state.user?.email}</Text>
           <Text style={styles.userRole}>{getRoleText(state.user?.role || 'user')}</Text>
         </Card.Content>
@@ -78,7 +77,7 @@ const ProfileScreen: React.FC = () => {
       {/* Informações da conta */}
       <Card style={styles.card}>
         <Card.Content>
-          <Title>Informações da Conta</Title>
+          <Text variant="headlineSmall">Informações da Conta</Text>
           <List.Item
             title="Nome"
             description={state.user?.name}
@@ -108,7 +107,7 @@ const ProfileScreen: React.FC = () => {
       {/* Configurações */}
       <Card style={styles.card}>
         <Card.Content>
-          <Title>Configurações</Title>
+          <Text variant="headlineSmall">Configurações</Text>
           <List.Item
             title="Sincronizar dados"
             description="Sincronizar dados offline com o servidor"
@@ -138,7 +137,7 @@ const ProfileScreen: React.FC = () => {
       {/* Sobre o aplicativo */}
       <Card style={styles.card}>
         <Card.Content>
-          <Title>Sobre</Title>
+          <Text variant="headlineSmall">Sobre</Text>
           <List.Item
             title="Versão do aplicativo"
             description="1.0.0"

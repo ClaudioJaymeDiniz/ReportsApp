@@ -30,8 +30,7 @@ type DashboardScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
 const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<DashboardScreenNavigationProp>();
-  const authContext = useAuth();
-  const { state } = authContext;
+  const { state } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

@@ -3,7 +3,6 @@ import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { 
   Text, 
   Card, 
-  Title, 
   Button, 
   Chip,
   ActivityIndicator,
@@ -16,6 +15,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 
 import { databaseService } from '../database/database';
+import { useAuth } from '../contexts/AuthContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { Report, Project } from '../types';
 
@@ -25,6 +25,7 @@ type ReportDetailScreenRouteProp = RouteProp<RootStackParamList, 'ReportDetail'>
 const ReportDetailScreen: React.FC = () => {
   const navigation = useNavigation<ReportDetailScreenNavigationProp>();
   const route = useRoute<ReportDetailScreenRouteProp>();
+  const { state } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<Report | null>(null);
@@ -40,10 +41,12 @@ const ReportDetailScreen: React.FC = () => {
       if (reportData) {
         setReport(reportData);
         
-        // Carrega dados do projeto
-        const projectData = await databaseService.getProjectsByUserId('current_user'); // TODO: usar ID real
-        const reportProject = projectData.find(p => p.id === reportData.projectId);
-        setProject(reportProject || null);
+        // Carrega dados do projeto usando o ID do usuário atual
+        if (state?.user?.id) {
+          const projectData = await databaseService.getProjectsByUserId(state.user.id);
+          const reportProject = projectData.find(p => p.id === reportData.projectId);
+          setProject(reportProject || null);
+        }
       }
     } catch (error) {
       console.error('Error loading report details:', error);
@@ -57,6 +60,48 @@ const ReportDetailScreen: React.FC = () => {
     if (report) {
       navigation.navigate('FillReport', { reportId: report.id });
     }
+  };
+
+  const handleEditReport = () => {
+    if (report) {
+      navigation.navigate('CreateReport', { 
+        reportId: report.id,
+        isEditing: true 
+      });
+    }
+  };
+
+  const handleDeleteReport = () => {
+    Alert.alert(
+      'Excluir Relatório',
+      'Tem certeza que deseja excluir este relatório? Esta ação não pode ser desfeita.',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (report) {
+                await databaseService.deleteReport(report.id);
+                Alert.alert('Sucesso', 'Relatório excluído com sucesso!', [
+                  {
+                    text: 'OK',
+                    onPress: () => navigation.goBack(),
+                  },
+                ]);
+              }
+            } catch (error) {
+              console.error('Error deleting report:', error);
+              Alert.alert('Erro', 'Falha ao excluir o relatório');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const getStatusColor = (status: string) => {
@@ -136,7 +181,7 @@ const ReportDetailScreen: React.FC = () => {
         <Card.Content>
           <View style={styles.header}>
             <View style={styles.titleContainer}>
-              <Title style={styles.title}>{report.title}</Title>
+              <Text variant="headlineMedium" style={styles.title}>{report.title}</Text>
               <Chip 
                 style={{ backgroundColor: getStatusColor(report.status) }}
                 textStyle={{ color: '#fff' }}
@@ -195,7 +240,7 @@ const ReportDetailScreen: React.FC = () => {
       {/* Campos do relatório */}
       <Card style={styles.card}>
         <Card.Content>
-          <Title>Campos do Relatório</Title>
+          <Text variant="headlineSmall">Campos do Relatório</Text>
           
           {report.fields.length === 0 ? (
             <Text style={styles.emptyText}>
@@ -235,7 +280,7 @@ const ReportDetailScreen: React.FC = () => {
       {state.user && (
         <Card style={styles.card}>
           <Card.Content>
-            <Title>Ações</Title>
+            <Text variant="headlineSmall">Ações</Text>
             
             {/* Botão para preencher relatório */}
             {(report.permissions.canFill.includes('*') || 
@@ -261,6 +306,30 @@ const ReportDetailScreen: React.FC = () => {
                 Ver Respostas
               </Button>
             )}
+
+            {/* Botões de editar e excluir (apenas para o criador) */}
+            {state.user.id === report.createdBy && (
+              <>
+                <Button
+                  mode="outlined"
+                  onPress={handleEditReport}
+                  style={styles.actionButton}
+                  icon="pencil"
+                >
+                  Editar Relatório
+                </Button>
+                
+                <Button
+                  mode="outlined"
+                  onPress={handleDeleteReport}
+                  style={[styles.actionButton, { borderColor: '#F44336' }]}
+                  labelStyle={{ color: '#F44336' }}
+                  icon="delete"
+                >
+                  Excluir Relatório
+                </Button>
+              </>
+            )}
           </Card.Content>
         </Card>
       )}
@@ -268,7 +337,7 @@ const ReportDetailScreen: React.FC = () => {
       {/* Permissões */}
       <Card style={styles.card}>
         <Card.Content>
-          <Title>Permissões</Title>
+          <Text variant="headlineSmall">Permissões</Text>
           
           <List.Item
             title="Pode preencher"

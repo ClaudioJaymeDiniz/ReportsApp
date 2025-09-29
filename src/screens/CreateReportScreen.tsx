@@ -5,12 +5,12 @@ import {
   TextInput, 
   Button, 
   Card, 
-  Title,
   ActivityIndicator,
   Menu,
   Divider,
   List,
-  FAB
+  FAB,
+  Chip
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -21,6 +21,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { databaseService } from '../database/database';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { Project, ReportField } from '../types';
+import AddFieldModal from '../components/AddFieldModal';
 
 type CreateReportScreenNavigationProp = StackNavigationProp<RootStackParamList, 'CreateReport'>;
 type CreateReportScreenRouteProp = RouteProp<RootStackParamList, 'CreateReport'>;
@@ -40,10 +41,20 @@ const CreateReportScreen: React.FC = () => {
   const [accessType, setAccessType] = useState<'public' | 'specific'>('public');
   const [allowedUsers, setAllowedUsers] = useState<string[]>([]);
   const [newUserEmail, setNewUserEmail] = useState('');
+  const [addFieldModalVisible, setAddFieldModalVisible] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingReportId, setEditingReportId] = useState<string | null>(null);
 
   useEffect(() => {
     loadProjects();
-  }, [state.user]);
+    
+    // Verificar se está em modo de edição
+    if (route.params?.isEditing && route.params?.reportId) {
+      setIsEditing(true);
+      setEditingReportId(route.params.reportId);
+      loadReportData(route.params.reportId);
+    }
+  }, [state.user, route.params]);
 
   const loadProjects = async () => {
     try {
@@ -61,6 +72,47 @@ const CreateReportScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading projects:', error);
+    }
+  };
+
+  const loadReportData = async (reportId: string) => {
+    try {
+      setLoading(true);
+      const report = await databaseService.getReportById(reportId);
+      
+      if (report) {
+        setTitle(report.title);
+        setDescription(report.description || '');
+        setFields(report.fields || []);
+        
+        // Carregar projeto do relatório
+        if (report.projectId) {
+          const project = await databaseService.getProjectById(report.projectId);
+          if (project) {
+            setSelectedProject(project);
+          }
+        }
+        
+        // Configurar permissões baseadas na estrutura atual
+        if (report.permissions) {
+          const permissions = report.permissions;
+          
+          // Verificar se é público (canFill contém '*')
+          if (permissions.canFill && permissions.canFill.includes('*')) {
+            setAccessType('public');
+          } else {
+            setAccessType('specific');
+            // Usar os usuários que podem preencher como base
+            const userEmails = permissions.canFill || [];
+            setAllowedUsers(userEmails.filter(email => email !== '*'));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading report data:', error);
+      Alert.alert('Erro', 'Falha ao carregar dados do relatório');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -131,42 +183,77 @@ const CreateReportScreen: React.FC = () => {
         canConsolidate: [state.user.id] // Apenas o criador pode consolidar
       };
 
-      console.log('Creating report with data:', {
-        title: title.trim(),
-        description: description.trim() || undefined,
-        projectId: selectedProject.id,
-        createdBy: state.user.id,
-        fields: fields.map((field, index) => ({
-          ...field,
-          order: index
-        })),
-        permissions,
-        status: 'active'
-      });
+      if (isEditing && editingReportId) {
+        // Modo de edição - atualizar relatório existente
+        console.log('Updating report with data:', {
+          title: title.trim(),
+          description: description.trim() || undefined,
+          projectId: selectedProject.id,
+          fields: fields.map((field, index) => ({
+            ...field,
+            order: index
+          })),
+          permissions,
+          status: 'active'
+        });
 
-      await databaseService.createReport({
-        title: title.trim(),
-        description: description.trim() || undefined,
-        projectId: selectedProject.id,
-        createdBy: state.user.id,
-        fields: fields.map((field, index) => ({
-          ...field,
-          order: index
-        })),
-        permissions,
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
+        await databaseService.updateReport(editingReportId, {
+          title: title.trim(),
+          description: description.trim() || undefined,
+          projectId: selectedProject.id,
+          fields: fields.map((field, index) => ({
+            ...field,
+            order: index
+          })),
+          permissions,
+          status: 'active',
+          updatedAt: new Date().toISOString()
+        });
 
-      Alert.alert(
-        'Sucesso',
-        'Relatório criado com sucesso!',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+        Alert.alert(
+          'Sucesso',
+          'Relatório atualizado com sucesso!',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        // Modo de criação - criar novo relatório
+        console.log('Creating report with data:', {
+          title: title.trim(),
+          description: description.trim() || undefined,
+          projectId: selectedProject.id,
+          createdBy: state.user.id,
+          fields: fields.map((field, index) => ({
+            ...field,
+            order: index
+          })),
+          permissions,
+          status: 'active'
+        });
+
+        await databaseService.createReport({
+          title: title.trim(),
+          description: description.trim() || undefined,
+          projectId: selectedProject.id,
+          createdBy: state.user.id,
+          fields: fields.map((field, index) => ({
+            ...field,
+            order: index
+          })),
+          permissions,
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+
+        Alert.alert(
+          'Sucesso',
+          'Relatório criado com sucesso!',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      }
     } catch (error) {
-      console.error('Error creating report:', error);
-      Alert.alert('Erro', `Falha ao criar relatório: ${error.message || 'Erro desconhecido'}`);
+      console.error('Error creating/updating report:', error);
+      Alert.alert('Erro', `Falha ao ${isEditing ? 'atualizar' : 'criar'} relatório: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }
@@ -219,17 +306,26 @@ const CreateReportScreen: React.FC = () => {
     }
   };
 
+  const handleAddField = (fieldData: Omit<ReportField, 'id' | 'order'>) => {
+    const newField: ReportField = {
+      ...fieldData,
+      id: Date.now().toString(),
+      order: fields.length,
+    };
+    setFields([...fields, newField]);
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
         <Card style={styles.card}>
           <Card.Content>
-            <Title style={styles.title}>Novo Relatório</Title>
+            <Text style={styles.title}>Novo Relatório</Text>
             <Text style={styles.subtitle}>
               Configure os campos e permissões do seu relatório
             </Text>
 
-            {/* Seleção de projeto */}
+            {/* Seleção de projeto com dropdown melhorado */}
             <Text style={styles.sectionTitle}>Projeto</Text>
             <Menu
               visible={projectMenuVisible}
@@ -240,22 +336,45 @@ const CreateReportScreen: React.FC = () => {
                   onPress={() => setProjectMenuVisible(true)}
                   style={styles.projectSelector}
                   icon="folder"
+                  contentStyle={styles.projectButtonContent}
                 >
                   {selectedProject ? selectedProject.name : 'Selecionar projeto'}
                 </Button>
               }
+              contentStyle={styles.projectMenu}
             >
-              {projects.map((project) => (
+              {projects.length === 0 ? (
                 <Menu.Item
-                  key={project.id}
-                  onPress={() => {
-                    setSelectedProject(project);
-                    setProjectMenuVisible(false);
-                  }}
-                  title={project.name}
+                  title="Nenhum projeto encontrado"
+                  disabled
                 />
-              ))}
+              ) : (
+                projects.map((project) => (
+                  <Menu.Item
+                    key={project.id}
+                    onPress={() => {
+                      setSelectedProject(project);
+                      setProjectMenuVisible(false);
+                    }}
+                    title={project.name}
+                    leadingIcon="folder"
+                    style={selectedProject?.id === project.id ? styles.selectedMenuItem : undefined}
+                  />
+                ))
+              )}
             </Menu>
+
+            {selectedProject && (
+              <View style={styles.selectedProjectInfo}>
+                <Chip
+                  icon="folder"
+                  style={styles.projectChip}
+                  textStyle={{ color: '#fff' }}
+                >
+                  {selectedProject.name}
+                </Chip>
+              </View>
+            )}
 
             {/* Informações básicas */}
             <Text style={styles.sectionTitle}>Informações Básicas</Text>
@@ -280,118 +399,130 @@ const CreateReportScreen: React.FC = () => {
               placeholder="Descreva o objetivo do relatório..."
             />
 
-            {/* Campos do relatório */}
+            {/* Campos do relatório com melhor visualização */}
             <Text style={styles.sectionTitle}>Campos do Relatório</Text>
             
             {fields.length === 0 ? (
-              <Text style={styles.emptyText}>
-                Nenhum campo adicionado. Use o botão + para adicionar campos.
-              </Text>
+              <View style={styles.emptyFieldsContainer}>
+                <Ionicons name="list-outline" size={48} color="#ccc" />
+                <Text style={styles.emptyText}>
+                  Nenhum campo adicionado ainda
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  Use o botão + para adicionar campos ao seu relatório
+                </Text>
+              </View>
             ) : (
-              fields.map((field, index) => (
-                <Card key={field.id} style={styles.fieldCard}>
-                  <Card.Content>
-                    <View style={styles.fieldHeader}>
-                      <View style={styles.fieldInfo}>
-                        <Ionicons 
-                          name={getFieldTypeIcon(field.type)} 
-                          size={20} 
-                          color="#2196F3" 
-                        />
-                        <Text style={styles.fieldType}>
-                          {getFieldTypeName(field.type)}
-                        </Text>
-                      </View>
-                      <Button
-                        mode="text"
-                        onPress={() => removeField(field.id)}
-                        compact
-                        textColor="#F44336"
-                      >
-                        Remover
-                      </Button>
-                    </View>
-
-                    <TextInput
-                      label="Rótulo do campo"
-                      value={field.label}
-                      onChangeText={(text) => updateField(field.id, { label: text })}
-                      mode="outlined"
-                      style={styles.fieldInput}
-                    />
-
-                    <TextInput
-                      label="Placeholder (opcional)"
-                      value={field.placeholder || ''}
-                      onChangeText={(text) => updateField(field.id, { placeholder: text })}
-                      mode="outlined"
-                      style={styles.fieldInput}
-                    />
-
-                    {/* Opções para lista suspensa */}
-                    {field.type === 'select' && (
-                      <View style={styles.selectOptionsContainer}>
-                        <Text style={styles.selectOptionsTitle}>Opções da Lista:</Text>
-                        {(field.options || []).map((option, optionIndex) => (
-                          <View key={optionIndex} style={styles.selectOptionItem}>
-                            <TextInput
-                              value={option}
-                              onChangeText={(text) => {
-                                const newOptions = [...(field.options || [])];
-                                newOptions[optionIndex] = text;
-                                updateField(field.id, { options: newOptions });
-                              }}
-                              mode="outlined"
-                              style={styles.selectOptionInput}
-                              placeholder={`Opção ${optionIndex + 1}`}
-                            />
-                            <Button
-                              mode="text"
-                              onPress={() => {
-                                const newOptions = [...(field.options || [])];
-                                newOptions.splice(optionIndex, 1);
-                                updateField(field.id, { options: newOptions });
-                              }}
+              <View style={styles.fieldsContainer}>
+                {fields.map((field, index) => (
+                  <Card key={field.id} style={styles.fieldCard}>
+                    <Card.Content>
+                      <View style={styles.fieldHeader}>
+                        <View style={styles.fieldInfo}>
+                          <Ionicons 
+                            name={getFieldTypeIcon(field.type)} 
+                            size={20} 
+                            color="#2196F3" 
+                          />
+                          <Text style={styles.fieldType}>
+                            {getFieldTypeName(field.type)}
+                          </Text>
+                          {field.required && (
+                            <Chip 
+                              style={styles.requiredChip} 
+                              textStyle={{ color: '#fff', fontSize: 10 }}
                               compact
-                              textColor="#F44336"
                             >
-                              Remover
-                            </Button>
-                          </View>
-                        ))}
+                              Obrigatório
+                            </Chip>
+                          )}
+                        </View>
                         <Button
-                          mode="outlined"
-                          onPress={() => {
-                            const newOptions = [...(field.options || []), ''];
-                            updateField(field.id, { options: newOptions });
-                          }}
-                          style={styles.addOptionButton}
-                          icon="plus"
+                          mode="text"
+                          onPress={() => removeField(field.id)}
+                          compact
+                          textColor="#F44336"
                         >
-                          Adicionar Opção
+                          Remover
                         </Button>
                       </View>
-                    )}
 
-                    <View style={styles.fieldOptions}>
-                      <Button
-                        mode={field.required ? "contained" : "outlined"}
-                        onPress={() => updateField(field.id, { required: !field.required })}
-                        compact
-                        style={styles.optionButton}
-                      >
-                        {field.required ? "Obrigatório" : "Opcional"}
-                      </Button>
-                    </View>
-                  </Card.Content>
-                </Card>
-              ))
+                      <TextInput
+                        label="Nome do campo"
+                        value={field.label}
+                        onChangeText={(text) => updateField(field.id, { label: text })}
+                        mode="outlined"
+                        style={styles.fieldInput}
+                        dense
+                      />
+
+                      {field.type === 'select' && field.options && (
+                        <View style={styles.selectOptionsContainer}>
+                          <Text style={styles.selectOptionsTitle}>Opções:</Text>
+                          {field.options.map((option, optIndex) => (
+                            <View key={optIndex} style={styles.selectOptionItem}>
+                              <TextInput
+                                value={option}
+                                onChangeText={(text) => {
+                                  const newOptions = [...(field.options || [])];
+                                  newOptions[optIndex] = text;
+                                  updateField(field.id, { options: newOptions });
+                                }}
+                                mode="outlined"
+                                style={styles.selectOptionInput}
+                                dense
+                                placeholder={`Opção ${optIndex + 1}`}
+                              />
+                              {field.options && field.options.length > 1 && (
+                                <Button
+                                  mode="text"
+                                  onPress={() => {
+                                    const newOptions = field.options?.filter((_, i) => i !== optIndex) || [];
+                                    updateField(field.id, { options: newOptions });
+                                  }}
+                                  compact
+                                  textColor="#F44336"
+                                >
+                                  ×
+                                </Button>
+                              )}
+                            </View>
+                          ))}
+                          <Button
+                            mode="outlined"
+                            onPress={() => {
+                              const newOptions = [...(field.options || []), ''];
+                              updateField(field.id, { options: newOptions });
+                            }}
+                            style={styles.addOptionButton}
+                            compact
+                            icon="plus"
+                          >
+                            Adicionar Opção
+                          </Button>
+                        </View>
+                      )}
+
+                      <View style={styles.fieldOptions}>
+                        <Button
+                          mode={field.required ? "contained" : "outlined"}
+                          onPress={() => updateField(field.id, { required: !field.required })}
+                          style={styles.optionButton}
+                          compact
+                        >
+                          {field.required ? "Obrigatório" : "Opcional"}
+                        </Button>
+                      </View>
+                    </Card.Content>
+                  </Card>
+                ))}
+              </View>
             )}
 
             {/* Permissões de Acesso */}
             <Card style={styles.card}>
               <Card.Content>
-                <Title>Permissões de Acesso</Title>
+                <Text variant="headlineSmall">Permissões de Acesso</Text>
                 
                 <View style={styles.permissionSection}>
                   <Text style={styles.permissionLabel}>Quem pode preencher este relatório?</Text>
@@ -475,58 +606,45 @@ const CreateReportScreen: React.FC = () => {
               </Card.Content>
             </Card>
 
-            <View style={styles.buttonContainer}>
-              <Button
-                mode="outlined"
-                onPress={() => navigation.goBack()}
-                style={styles.button}
-                disabled={loading}
-              >
-                Cancelar
-              </Button>
-              
-              <Button
-                mode="contained"
-                onPress={handleCreateReport}
-                style={styles.button}
-                loading={loading}
-                disabled={loading}
-              >
-                Criar Relatório
-              </Button>
-            </View>
+            <View style={styles.actionButtons}>
+               <Button
+                 mode="outlined"
+                 onPress={() => navigation.goBack()}
+                 style={styles.button}
+                 disabled={loading}
+               >
+                 Cancelar
+               </Button>
+               
+               <Button
+                 mode="contained"
+                 onPress={handleCreateReport}
+                 style={styles.button}
+                 loading={loading}
+                 disabled={loading}
+               >
+                 {isEditing ? 'Atualizar Relatório' : 'Criar Relatório'}
+               </Button>
+             </View>
           </Card.Content>
         </Card>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Menu de adicionar campos */}
-      <Menu
-        visible={false}
-        onDismiss={() => {}}
-        anchor={
-          <FAB
-            style={styles.fab}
-            icon="plus"
-            label="Adicionar Campo"
-            onPress={() => {
-              Alert.alert(
-                'Adicionar Campo',
-                'Selecione o tipo de campo:',
-                [
-                  { text: 'Texto', onPress: () => addField('text') },
-                  { text: 'Texto longo', onPress: () => addField('textarea') },
-                  { text: 'Checkbox', onPress: () => addField('checkbox') },
-                  { text: 'Lista suspensa', onPress: () => addField('select') },
-                  { text: 'Arquivo', onPress: () => addField('file') },
-                  { text: 'Imagem', onPress: () => addField('image') },
-                  { text: 'Cancelar', style: 'cancel' }
-                ]
-              );
-            }}
-          />
-        }
+      {/* FAB melhorado */}
+      <FAB
+        style={styles.fab}
+        icon="plus"
+        label="Adicionar Campo"
+        onPress={() => setAddFieldModalVisible(true)}
+      />
+
+      {/* Modal melhorado para adicionar campos */}
+      <AddFieldModal
+        visible={addFieldModalVisible}
+        onDismiss={() => setAddFieldModalVisible(false)}
+        onAddField={handleAddField}
       />
     </View>
   );
@@ -564,14 +682,49 @@ const styles = StyleSheet.create({
   projectSelector: {
     marginBottom: 16,
   },
+  projectButtonContent: {
+    justifyContent: 'flex-start',
+  },
+  projectMenu: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    elevation: 4,
+  },
+  selectedMenuItem: {
+    backgroundColor: '#e3f2fd',
+  },
+  selectedProjectInfo: {
+    marginBottom: 16,
+  },
+  projectChip: {
+    backgroundColor: '#2196F3',
+    alignSelf: 'flex-start',
+  },
   input: {
+    marginBottom: 16,
+  },
+  emptyFieldsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    backgroundColor: '#fafafa',
+    borderRadius: 8,
     marginBottom: 16,
   },
   emptyText: {
     textAlign: 'center',
     color: '#666',
-    fontStyle: 'italic',
-    marginVertical: 20,
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 12,
+  },
+  emptySubtext: {
+    textAlign: 'center',
+    color: '#999',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  fieldsContainer: {
+    marginBottom: 16,
   },
   fieldCard: {
     marginBottom: 12,
@@ -586,11 +739,17 @@ const styles = StyleSheet.create({
   fieldInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   fieldType: {
     marginLeft: 8,
     fontWeight: 'bold',
     color: '#333',
+    flex: 1,
+  },
+  requiredChip: {
+    backgroundColor: '#FF9800',
+    marginLeft: 8,
   },
   fieldInput: {
     marginBottom: 8,
@@ -603,6 +762,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 24,
+  },
+  button: {
+    flex: 1,
+    marginHorizontal: 8,
   },
   optionButton: {
     marginHorizontal: 4,

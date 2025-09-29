@@ -3,7 +3,6 @@ import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { 
   Text, 
   Card, 
-  Title, 
   Button, 
   FAB,
   ActivityIndicator,
@@ -200,7 +199,7 @@ const ReportsScreen: React.FC = () => {
                 <Card.Content>
                   <View style={styles.reportHeader}>
                     <View style={styles.reportInfo}>
-                      <Title style={styles.reportTitle}>{report.title}</Title>
+                      <Text variant="titleLarge" style={styles.reportTitle}>{report.title}</Text>
                       <Text style={styles.projectName}>
                         {getProjectName(report.projectId)}
                       </Text>

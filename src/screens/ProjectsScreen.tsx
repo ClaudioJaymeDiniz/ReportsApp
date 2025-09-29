@@ -3,7 +3,6 @@ import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { 
   Text, 
   Card, 
-  Title, 
   Button, 
   FAB,
   Surface,
@@ -102,7 +101,7 @@ const ProjectsScreen: React.FC = () => {
                 <Card.Content>
                   <View style={styles.projectHeader}>
                     <View style={styles.projectInfo}>
-                      <Title style={styles.projectTitle}>{project.name}</Title>
+                      <Text variant="titleLarge" style={styles.projectTitle}>{project.name}</Text>
                       <Text style={styles.projectDescription} numberOfLines={2}>
                         {project.description || 'Sem descrição'}
                       </Text>

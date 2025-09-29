@@ -5,7 +5,6 @@ import {
   TextInput,
   Button,
   Card,
-  Title,
   Divider,
   ActivityIndicator,
 } from "react-native-paper";
@@ -89,7 +88,7 @@ const LoginScreen: React.FC = () => {
 
       <Card style={styles.card}>
         <Card.Content>
-          <Title style={styles.cardTitle}>Entrar</Title>
+          <Text variant="headlineSmall" style={styles.cardTitle}>Entrar</Text>
 
           <TextInput
             label="Email"

@@ -3,7 +3,6 @@ import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { 
   Text, 
   Card, 
-  Title, 
   Button, 
   TextInput,
   Checkbox,
@@ -333,7 +332,7 @@ const FillReportScreen: React.FC = () => {
       <ScrollView style={styles.scrollView}>
         <Card style={styles.card}>
           <Card.Content>
-            <Title style={styles.title}>{report.title}</Title>
+            <Text variant="headlineMedium" style={styles.title}>{report.title}</Text>
             {report.description && (
               <Text style={styles.description}>{report.description}</Text>
             )}
@@ -352,7 +351,7 @@ const FillReportScreen: React.FC = () => {
 
         <Card style={styles.card}>
           <Card.Content>
-            <Title>Preencher Campos</Title>
+            <Text variant="headlineSmall">Preencher Campos</Text>
             
             {report.fields
               .sort((a, b) => a.order - b.order)

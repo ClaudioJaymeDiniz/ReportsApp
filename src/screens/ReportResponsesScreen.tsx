@@ -3,7 +3,6 @@ import { View, StyleSheet, ScrollView, RefreshControl } from "react-native";
 import {
   Text,
   Card,
-  Title,
   Button,
   ActivityIndicator,
   Chip,
@@ -170,16 +169,14 @@ const ReportResponsesScreen: React.FC = () => {
       }
     >
       <Card style={styles.headerCard}>
-        <Card.Content>
-          <Title>{report.title}</Title>
-          {report.description && (
+          <Card.Content>
+            <Text variant="headlineSmall">{report.title}</Text>
             <Text style={styles.description}>{report.description}</Text>
-          )}
-          <Text style={styles.statsText}>
-            Total de respostas: {submissions.length}
-          </Text>
-        </Card.Content>
-      </Card>
+            <Text style={styles.statsText}>
+              Total de respostas: {submissions.length}
+            </Text>
+          </Card.Content>
+        </Card>
 
       {submissions.length === 0 ? (
         <Card style={styles.card}>

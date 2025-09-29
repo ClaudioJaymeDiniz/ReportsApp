@@ -5,7 +5,6 @@ import {
   TextInput, 
   Button, 
   Card, 
-  Title,
   ActivityIndicator 
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
@@ -99,7 +98,7 @@ const RegisterScreen: React.FC = () => {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
         <Ionicons name="person-add" size={80} color="#2196F3" />
-        <Title style={styles.title}>Criar Conta</Title>
+        <Text variant="headlineMedium" style={styles.title}>Criar Conta</Text>
         <Text style={styles.subtitle}>
           Cadastre-se para começar a usar o Reports App
         </Text>
@@ -107,7 +106,7 @@ const RegisterScreen: React.FC = () => {
 
       <Card style={styles.card}>
         <Card.Content>
-          <Title style={styles.cardTitle}>Cadastro</Title>
+          <Text variant="headlineSmall" style={styles.cardTitle}>Cadastro</Text>
           
           <TextInput
             label="Nome completo"

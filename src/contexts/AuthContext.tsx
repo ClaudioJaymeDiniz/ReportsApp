@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { AuthState, User, LoginCredentials, RegisterData } from '../types';
 import { databaseService } from '../database/database';
 
@@ -64,16 +65,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkAuthState = async () => {
     try {
-      const token = await SecureStore.getItemAsync('auth_token');
-      const refreshToken = await SecureStore.getItemAsync('refresh_token');
-      const userJson = await SecureStore.getItemAsync('user_data');
+      if (Platform.OS === 'web') {
+        // Para web, usa localStorage
+        const token = localStorage.getItem('auth_token');
+        const refreshToken = localStorage.getItem('refresh_token');
+        const userJson = localStorage.getItem('user_data');
 
-      if (token && userJson) {
-        const user = JSON.parse(userJson);
-        dispatch({
-          type: 'LOGIN_SUCCESS',
-          payload: { user, token, refreshToken: refreshToken || '' },
-        });
+        if (token && userJson) {
+          const user = JSON.parse(userJson);
+          dispatch({
+            type: 'LOGIN_SUCCESS',
+            payload: { user, token, refreshToken: refreshToken || '' },
+          });
+        }
+      } else {
+        // Para mobile, usa SecureStore
+        const token = await SecureStore.getItemAsync('auth_token');
+        const refreshToken = await SecureStore.getItemAsync('refresh_token');
+        const userJson = await SecureStore.getItemAsync('user_data');
+
+        if (token && userJson) {
+          const user = JSON.parse(userJson);
+          dispatch({
+            type: 'LOGIN_SUCCESS',
+            payload: { user, token, refreshToken: refreshToken || '' },
+          });
+        }
       }
     } catch (error) {
       console.error('Error checking auth state:', error);
@@ -110,9 +127,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const refreshToken = `refresh_${Date.now()}`;
 
       // Salva dados de autenticação
-      await SecureStore.setItemAsync('auth_token', token);
-      await SecureStore.setItemAsync('refresh_token', refreshToken);
-      await SecureStore.setItemAsync('user_data', JSON.stringify(user));
+      if (Platform.OS === 'web') {
+        // Para web, usa localStorage
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('refresh_token', refreshToken);
+        localStorage.setItem('user_data', JSON.stringify(user));
+      } else {
+        // Para mobile, usa SecureStore
+        await SecureStore.setItemAsync('auth_token', token);
+        await SecureStore.setItemAsync('refresh_token', refreshToken);
+        await SecureStore.setItemAsync('user_data', JSON.stringify(user));
+      }
 
       dispatch({
         type: 'LOGIN_SUCCESS',
@@ -153,9 +178,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = `token_${Date.now()}`;
       const refreshToken = `refresh_${Date.now()}`;
 
-      await SecureStore.setItemAsync('auth_token', token);
-      await SecureStore.setItemAsync('refresh_token', refreshToken);
-      await SecureStore.setItemAsync('user_data', JSON.stringify(user));
+      if (Platform.OS === 'web') {
+        // Para web, usa localStorage
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('refresh_token', refreshToken);
+        localStorage.setItem('user_data', JSON.stringify(user));
+      } else {
+        // Para mobile, usa SecureStore
+        await SecureStore.setItemAsync('auth_token', token);
+        await SecureStore.setItemAsync('refresh_token', refreshToken);
+        await SecureStore.setItemAsync('user_data', JSON.stringify(user));
+      }
 
       dispatch({
         type: 'LOGIN_SUCCESS',
@@ -171,9 +204,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
-      await SecureStore.deleteItemAsync('auth_token');
-      await SecureStore.deleteItemAsync('refresh_token');
-      await SecureStore.deleteItemAsync('user_data');
+      if (Platform.OS === 'web') {
+        // Para web, usa localStorage
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_data');
+      } else {
+        // Para mobile, usa SecureStore
+        await SecureStore.deleteItemAsync('auth_token');
+        await SecureStore.deleteItemAsync('refresh_token');
+        await SecureStore.deleteItemAsync('user_data');
+      }
       
       dispatch({ type: 'LOGOUT' });
     } catch (error) {
